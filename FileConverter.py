@@ -25,7 +25,7 @@ def extract_data(file_path):
                 data['WindowsVersion'] = ' '.join([winVersion[0], winVersion[2], winVersion[3]])
             if line.startswith('Betriebssystemversion'):
                 winVersion = line.strip().split(':')[1].strip().split()
-                data['WindowsVersion'] = ' '.join([winVersion[0], winVersion[2], winVersion[3], winVersion[4]])
+                data['WindowsVersion'] = ' '.join([winVersion[0], winVersion[3], winVersion[4]])
             if line.startswith('Host Name:') or line.startswith('Hostname:'):
                 data['HostName'] = line.strip().split(':')[1].strip()  # Hent Host Navn
             if line.startswith('OS Name:') or line.startswith('Betriebssystemname:'):
@@ -69,15 +69,18 @@ def get_latest_windows_versions(url):  # Find de seneste windows versioner
     else:
         print("Target element not found.")
 
+try:
+    win11_version = get_latest_windows_versions(
+        "https://learn.microsoft.com/en-us/windows/release-health/windows11-release-information"
+    ).split(" ")[4].split(")")[0]
+    win10_version = get_latest_windows_versions(
+        "https://learn.microsoft.com/en-us/windows/release-health/release-information"
+    ).split(" ")[4].split(")")[0]
 
-win11_version = get_latest_windows_versions(
-    "https://learn.microsoft.com/en-us/windows/release-health/windows11-release-information").split(" ")[4].split(")")[
-    0]
-win10_version = \
-get_latest_windows_versions("https://learn.microsoft.com/en-us/windows/release-health/release-information").split(" ")[
-    4].split(")")[0]
-print("Seneste Windows 10 Version: ", win10_version)
-print("Seneste Windows 11 Version: ", win11_version)
+except Exception as e:
+    print("Der er sket en fejl i indhentningen af de seneste Windows Versioner")
+    print("Check on der er forbindelse til internettet!")
+    print(f"Fejlen: {e}")
 
 
 def get_executable_directory():  # Find den korrekte PATH til mappen med tekst filer
