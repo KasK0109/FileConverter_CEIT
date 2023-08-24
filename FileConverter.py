@@ -163,11 +163,15 @@ try:
                 row[3].fill = green_fill
             else:
                 row[3].fill = red_fill
+                for i in range(4):
+                    row[i].border = medium_border
         elif os_name == "Microsoft Windows 10 Pro":
             if win_version == win10_version:
                 row[3].fill = green_fill
             else:
                 row[3].fill = red_fill
+                for i in range(4):
+                    row[i].border = medium_border
         else:
             row[3].fill = yellow_fill
 
@@ -183,7 +187,6 @@ try:
         cell = worksheet.cell(row=row_num, column=5)  # Column E is represented by index 5
         if cell.value is not None and cell.value < 50:
             cell.font = bold_font
-            cell.border = medium_border
 
     worksheet.freeze_panes = "C2"
 
