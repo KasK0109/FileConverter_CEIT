@@ -17,21 +17,32 @@ def extract_data(file_path):
         if free_disc_space.startswith('2 Verzeichnis(se)'):
             data['FriDiskPlads>\C:'] = free_disc_space[19:24]
         else:
-            data['FriDiskPlads>\C:'] = free_disc_space[10:15] # Hent fri disk plads
+            data['FriDiskPlads>\C:'] = free_disc_space[10:15]  # Hent fri disk plads
 
         for line in lines:
-            if line.startswith('OS Version:'):
+            if line.startswith('OS Version:') or line.startswith('Version du systŠme'):
                 winVersion = line.strip().split(':')[1].strip().split()  # Hent Windows Version og split for join
                 data['WindowsVersion'] = ' '.join([winVersion[0], winVersion[2], winVersion[3]])
             if line.startswith('Betriebssystemversion'):
                 winVersion = line.strip().split(':')[1].strip().split()
                 data['WindowsVersion'] = ' '.join([winVersion[0], winVersion[3], winVersion[4]])
-            if line.startswith('Host Name:') or line.startswith('Hostname:'):
+            if line.startswith('Host Name:') or line.startswith('Hostname:') or line.startswith('Nom de l'):
                 data['HostName'] = line.strip().split(':')[1].strip()  # Hent Host Navn
-            if line.startswith('OS Name:') or line.startswith('Betriebssystemname:'):
+            if line.startswith('OS Name:') or line.startswith('Betriebssystemname:') or line.startswith(
+                    'Nom du systŠme'):
                 data['OSName'] = line.strip().split(':')[1].strip()  # Hent OS Navn
+            if line.startswith('System Locale') or line.startswith('Systemgebietsschema') or line.startswith(
+                    'Option r‚gionale du systŠme'):
+                data['SysLang'] = line.strip().split(':')[1].strip()
 
     return data
+
+
+def convert_french_format_to_number(french_format):
+    # Fjern "octets libres" fra strengen og erstatter "ÿ" med intet
+    cleaned_format = french_format.replace("ÿ", ",")
+
+    return cleaned_format
 
 
 def get_latest_windows_versions(url):  # Find de seneste windows versioner
@@ -42,6 +53,7 @@ def get_latest_windows_versions(url):  # Find de seneste windows versioner
 
     soup = BeautifulSoup(html_content, "html.parser")
 
+    # Find elmenter med seneste version og build
     # Find elmenter med seneste version og build
     target_element = ""
 
@@ -68,6 +80,7 @@ def get_latest_windows_versions(url):  # Find de seneste windows versioner
         return content
     else:
         print("Target element not found.")
+
 
 try:
     win11_version = get_latest_windows_versions(
@@ -116,7 +129,6 @@ number_format_style = NamedStyle(name='number_format_style', number_format='##0,
 target_column = "E"
 worksheet[f'{target_column}1'].style = number_format_style
 
-
 # Løkke til at løbe igennem tekst filer i mappe og hente data
 try:
     for filename in os.listdir(folder_path):
@@ -130,7 +142,12 @@ try:
                    data.get('OSName', ''),
                    data.get('WindowsVersion', ''),
                    ]
-            fri_disk_plads = data.get('FriDiskPlads>\C:', '').replace('.', ',')
+
+            if data.get('SysLang').startswith('fr'):
+                fri_disk_plads = convert_french_format_to_number(data.get('FriDiskPlads>\C:'))
+            else:
+                fri_disk_plads = data.get('FriDiskPlads>\C:', '').replace('.', ',')
+
             row.append(float(fri_disk_plads.replace(',', '.')))
 
             worksheet.append(row)
@@ -139,8 +156,6 @@ try:
     for cell in header_row:
         cell.font = Font(bold=True)
         cell.border = Border(bottom=Side(style='thick'))
-
-
 
     for column in worksheet.columns:
         max_length = max(len(str(cell.value)) for cell in column)
