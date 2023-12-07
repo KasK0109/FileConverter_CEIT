@@ -10,7 +10,10 @@ from openpyxl.styles import Font, Border, Side, PatternFill, NamedStyle
 # Funktion til at hente data fra tekst fil
 def extract_data(file_path):
     data = {}
-    with (open(file_path, 'r', encoding='ansi') as file):
+    volume_data = {}
+    processing_volume = False
+
+    with open(file_path, 'r', encoding='ansi') as file:
         lines = file.readlines()
         data['BrugerNavn'] = lines[0].strip()  # Hent bruger navn fra første linje
         free_disc_space = lines[-1].strip()
@@ -20,22 +23,32 @@ def extract_data(file_path):
             data['FriDiskPlads>\C:'] = free_disc_space[10:15]  # Hent fri disk plads
 
         for line in lines:
-            if line.startswith('OS Version:') or line.startswith('Version du systŠme'):
-                winVersion = line.strip().split(':')[1].strip().split()  # Hent Windows Version og split for join
-                data['WindowsVersion'] = ' '.join([winVersion[0], winVersion[2], winVersion[3]])
-            if line.startswith('Betriebssystemversion'):
-                winVersion = line.strip().split(':')[1].strip().split()
-                data['WindowsVersion'] = ' '.join([winVersion[0], winVersion[3], winVersion[4]])
-            if line.startswith('Host Name:') or line.startswith('Hostname:') or line.startswith('Nom de l'):
-                data['HostName'] = line.strip().split(':')[1].strip()  # Hent Host Navn
-            if line.startswith('OS Name:') or line.startswith('Betriebssystemname:') or line.startswith(
-                    'Nom du systŠme'):
-                data['OSName'] = line.strip().split(':')[1].strip()  # Hent OS Navn
-            if line.startswith('System Locale') or line.startswith('Systemgebietsschema') or line.startswith(
-                    'Option r‚gionale du systŠme'):
-                data['SysLang'] = line.strip().split(':')[1].strip()
+            if processing_volume:
+                if line.startswith('    Conversion Status'):
+                    volume_data['ConversionStatus'] = line.strip().split(':')[1].strip()
+                    processing_volume = False  # Done processing this volume
+            else:
+                if line.startswith('Volume C:') or line.startswith('Volume D:'):
+                    processing_volume = True
+                    volume_data = {}  # Reset volume_data
+                elif line.startswith('OS Version:') or line.startswith('Version du systŠme'):
+                    winVersion = line.strip().split(':')[1].strip().split()
+                    data['WindowsVersion'] = ' '.join([winVersion[0], winVersion[2], winVersion[3]])
+                elif line.startswith('Betriebssystemversion'):
+                    winVersion = line.strip().split(':')[1].strip().split()
+                    data['WindowsVersion'] = ' '.join([winVersion[0], winVersion[3], winVersion[4]])
+                elif line.startswith('Host Name:') or line.startswith('Hostname:') or line.startswith('Nom de l'):
+                    data['HostName'] = line.strip().split(':')[1].strip()  # Hent Host Navn
+                elif line.startswith('OS Name:') or line.startswith('Betriebssystemname:') or line.startswith('Nom du systŠme'):
+                    data['OSName'] = line.strip().split(':')[1].strip()  # Hent OS Navn
+                elif line.startswith('System Locale') or line.startswith('Systemgebietsschema') or line.startswith('Option r‚gionale du systŠme'):
+                    data['SysLang'] = line.strip().split(':')[1].strip()
+
+        if volume_data:
+            data['BitLocker'] = volume_data.get('ConversionStatus')  # Store the bitlocker info if available
 
     return data
+
 
 
 def convert_french_format_to_number(french_format):
@@ -123,7 +136,7 @@ medium_border = Border(
 bold_font = Font(bold=True)
 
 # Skriv data navne
-worksheet.append(['Bruger Navn', 'Host Navn', 'OS Navn', 'Windows Version', 'Fri disk plads på C:'])
+worksheet.append(['Bruger Navn', 'Host Navn', 'OS Navn', 'Windows Version', 'Fri disk plads på C:', 'BitLocker Status'])
 
 number_format_style = NamedStyle(name='number_format_style', number_format='##0,0')
 target_column = "E"
@@ -149,7 +162,7 @@ try:
                 fri_disk_plads = data.get('FriDiskPlads>\C:', '').replace('.', ',')
 
             row.append(float(fri_disk_plads.replace(',', '.')))
-
+            row.append(data.get('BitLocker'))
             worksheet.append(row)
 
     header_row = worksheet[1]
@@ -202,6 +215,14 @@ try:
         cell = worksheet.cell(row=row_num, column=5)  # Column E is represented by index 5
         if cell.value is not None and cell.value < 50:
             cell.font = bold_font
+
+    # Iterate through column F (BitLocker status) starting from row 2
+    for row_num in range(2, worksheet.max_row + 1):
+        cell = worksheet.cell(row=row_num, column=6)  # BitLocker status is in column 6
+        if cell.value == 'Fully Encrypted':
+            cell.fill = PatternFill(start_color = "00FF00", end_color = "00FF00", fill_type = "solid")  # Green fill
+        else:
+            cell.fill = PatternFill(start_color="FF0000", end_color="FF0000", fill_type="solid")  # Red fill
 
     worksheet.freeze_panes = "C2"
 
